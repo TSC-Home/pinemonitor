@@ -1,0 +1,101 @@
+name: Pre-release
+
+on:
+  push:
+    branches: ["**"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary: pine
+            artifact: pine-linux-x86_64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            binary: pine
+            artifact: pine-macos-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            binary: pine
+            artifact: pine-macos-aarch64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: pine.exe
+            artifact: pine-windows-x86_64.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Rename binary
+        shell: bash
+        run: cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "${{ matrix.artifact }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  prerelease:
+    name: Publish pre-release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Get short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Delete existing pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete nightly --yes 2>/dev/null || true
+          git push origin :refs/tags/nightly 2>/dev/null || true
+
+      - name: Create pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHORT_SHA: ${{ steps.sha.outputs.short }}
+          COMMIT_SHA: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          gh release create nightly \
+            --title "Nightly ($SHORT_SHA)" \
+            --notes "Automatischer Build von Commit $COMMIT_SHA auf Branch \`$BRANCH\`." \
+            --prerelease \
+            artifacts/*
