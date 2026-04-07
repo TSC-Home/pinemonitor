@@ -19,6 +19,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             binary: pine
             artifact: pine-linux-x86_64
+            apt_deps: libdbus-1-dev pkg-config
           - os: macos-latest
             target: x86_64-apple-darwin
             binary: pine
@@ -34,6 +35,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install system dependencies (Linux)
+        if: matrix.apt_deps != ''
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.apt_deps }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
