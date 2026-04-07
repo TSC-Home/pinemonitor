@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config libxcb-dev libxkbcommon-dev libxkbcommon-x11-dev
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
