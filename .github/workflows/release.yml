@@ -32,6 +32,8 @@ jobs:
           restore-keys: cargo-
 
       - name: Build
+        env:
+          RUSTFLAGS: "-L/usr/lib/x86_64-linux-gnu"
         run: cargo build --release
 
       - name: Upload artifact
